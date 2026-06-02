@@ -140,9 +140,15 @@ export default function ProductDetail() {
     return () => { cancelled = true }
   }, [id])
 
-  const [activeThumb, setActiveThumb] = useState(0)
   const [qty, setQty] = useState(1)
   const [activeTab, setActiveTab] = useState('description')
+
+  const weightOptions = product?.specs?.Weight
+    ? product.specs.Weight.split(',').map(w => w.trim())
+    : []
+  const [selectedWeight, setSelectedWeight] = useState(() =>
+    product?.specs?.Weight ? product.specs.Weight.split(',')[0].trim() : ''
+  )
   const [cartAdded, setCartAdded] = useState(false)
   const [wishlisted, setWishlisted] = useState(false)
 
@@ -176,9 +182,6 @@ export default function ProductDetail() {
   }
 
   const discount = Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
-
-  /* 4 thumbnail tints */
-  const thumbTints = ['#f5f5f3', '#f0efed', '#ebebea', '#e6e5e3']
 
   const relatedProducts = relatedAll
     .filter(p => p.category === product.category && p.id !== product.id)
@@ -221,21 +224,8 @@ export default function ProductDetail() {
 
             {/* Left: image gallery */}
             <div className="pd-gallery">
-              <div className="pd-gallery__main" style={{ background: thumbTints[activeThumb] }}>
+              <div className="pd-gallery__main">
                 <span className="pd-gallery__emoji" aria-hidden="true">{product.emoji}</span>
-              </div>
-              <div className="pd-gallery__thumbs">
-                {thumbTints.map((tint, i) => (
-                  <button
-                    key={i}
-                    className={`pd-gallery__thumb ${activeThumb === i ? 'pd-gallery__thumb--active' : ''}`}
-                    style={{ background: tint }}
-                    onClick={() => setActiveThumb(i)}
-                    aria-label={`View image ${i + 1}`}
-                  >
-                    <span aria-hidden="true">{product.emoji}</span>
-                  </button>
-                ))}
               </div>
             </div>
 
@@ -279,7 +269,7 @@ export default function ProductDetail() {
               {/* Divider */}
               <div className="pd-divider" />
 
-              {/* Qty selector */}
+              {/* Qty + Weight selectors */}
               <div className="pd-qty-row">
                 <span className="pd-qty-label">Quantity</span>
                 <div className="pd-qty-wrap">
@@ -296,6 +286,22 @@ export default function ProductDetail() {
                     aria-label="Increase quantity"
                   >+</button>
                 </div>
+
+                {weightOptions.length > 0 && (
+                  <>
+                    <span className="pd-qty-label" style={{ marginLeft: '1.5rem' }}>Weight</span>
+                    <select
+                      className="pd-weight-select"
+                      value={selectedWeight}
+                      onChange={e => setSelectedWeight(e.target.value)}
+                      aria-label="Select weight"
+                    >
+                      {weightOptions.map(w => (
+                        <option key={w} value={w}>{w}</option>
+                      ))}
+                    </select>
+                  </>
+                )}
               </div>
 
               {/* CTA buttons */}

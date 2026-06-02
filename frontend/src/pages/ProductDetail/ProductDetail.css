@@ -312,6 +312,24 @@
   line-height: 36px;
 }
 
+.pd-weight-select {
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--black);
+  background: var(--white);
+  cursor: pointer;
+  outline: none;
+}
+
+.pd-weight-select:focus {
+  border-color: var(--black);
+}
+
 /* Add to Cart */
 .pd-atc {
   width: 100%;
