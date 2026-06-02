@@ -11,7 +11,8 @@
       "Bash(python -c:*)",
       "Bash(venvScriptsactivate)",
       "Bash(python manage.py runserver:*)",
-      "Bash(source:*)"
+      "Bash(source:*)",
+      "Bash(npm run build:*)"
     ]
   }
 }

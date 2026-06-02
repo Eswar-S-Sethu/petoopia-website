@@ -56,8 +56,9 @@ export default function Navbar() {
   const { user } = useAuth()
   const { cartCount, wishlistCount } = useCart()
   const navigate = useNavigate()
-  const [scrolled, setScrolled] = useState(false)
-  const [query,    setQuery]    = useState('')
+  const [scrolled,  setScrolled]  = useState(false)
+  const [query,     setQuery]     = useState('')
+  const [category,  setCategory]  = useState('All')
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8)
@@ -65,9 +66,23 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
+  const buildShopUrl = (cat, q) => {
+    const params = new URLSearchParams()
+    if (cat !== 'All')  params.set('category', cat)
+    if (q.trim())       params.set('search',   q.trim())
+    const qs = params.toString()
+    return qs ? `/shop?${qs}` : '/shop'
+  }
+
+  const handleCategoryChange = e => {
+    const cat = e.target.value
+    setCategory(cat)
+    navigate(buildShopUrl(cat, query))
+  }
+
   const handleSearch = e => {
     e.preventDefault()
-    if (query.trim()) navigate(`/shop?search=${encodeURIComponent(query.trim())}`)
+    navigate(buildShopUrl(category, query))
   }
 
   return (
@@ -94,7 +109,12 @@ export default function Navbar() {
 
             {/* Search */}
             <form className="nav__search" onSubmit={handleSearch}>
-              <select className="nav__search-cat" aria-label="Search category">
+              <select
+                className="nav__search-cat"
+                aria-label="Search category"
+                value={category}
+                onChange={handleCategoryChange}
+              >
                 <option>All</option>
                 <option>Dogs</option>
                 <option>Cats</option>
