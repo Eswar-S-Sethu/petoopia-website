@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Navbar from '../../components/Navbar'
 import Footer from '../../components/Footer'
@@ -38,6 +38,78 @@ const NAV = [
 ]
 
 const PET_EMOJI = { Dogs: '🐕', Cats: '🐈', Birds: '🦜' }
+
+const BREEDS = {
+  Dogs: [
+    'Labrador Retriever', 'Golden Retriever', 'German Shepherd', 'French Bulldog',
+    'Bulldog', 'Poodle', 'Beagle', 'Rottweiler', 'Dachshund', 'Pembroke Welsh Corgi',
+    'Australian Shepherd', 'Yorkshire Terrier', 'Doberman Pinscher', 'Boxer',
+    'Great Dane', 'Siberian Husky', 'Cavalier King Charles Spaniel', 'Shih Tzu',
+    'Boston Terrier', 'Pomeranian', 'Border Collie', 'Cocker Spaniel', 'Maltese',
+    'Chihuahua', 'Staffordshire Bull Terrier', 'West Highland White Terrier',
+    'Bichon Frise', 'Australian Cattle Dog', 'Jack Russell Terrier', 'Kelpie',
+    'Whippet', 'Bull Terrier', 'Dalmatian', 'Akita', 'Samoyed', 'Alaskan Malamute',
+    'Bernese Mountain Dog', 'Miniature Schnauzer', 'Vizsla', 'Irish Setter',
+  ],
+  Cats: [
+    'Persian', 'Maine Coon', 'Ragdoll', 'Siamese', 'Bengal', 'British Shorthair',
+    'Abyssinian', 'Sphynx', 'Scottish Fold', 'Russian Blue', 'Norwegian Forest Cat',
+    'American Shorthair', 'Devon Rex', 'Cornish Rex', 'Burmese', 'Birman',
+    'Turkish Angora', 'Tonkinese', 'Exotic Shorthair', 'Himalayan', 'Siberian',
+    'Oriental Shorthair', 'Somali', 'Balinese', 'Ocicat', 'Chartreux',
+  ],
+  Birds: [
+    'Budgerigar', 'Cockatiel', 'Cockatoo', 'African Grey Parrot', 'Amazon Parrot',
+    'Lovebird', 'Conure', 'Sun Conure', 'Macaw', 'Eclectus Parrot',
+    'Rainbow Lorikeet', 'Caique', 'Senegal Parrot', 'Indian Ringneck Parakeet',
+    'Alexandrine Parakeet', 'Quaker Parrot', 'Canary', 'Finch', 'Dove',
+  ],
+}
+
+/* ── Breed autocomplete ── */
+function BreedAutocomplete({ value, petType, onChange, error }) {
+  const [open, setOpen] = useState(false)
+  const wrapRef         = useRef(null)
+
+  const suggestions = value.trim()
+    ? (BREEDS[petType] || []).filter(b => b.toLowerCase().includes(value.toLowerCase()))
+    : (BREEDS[petType] || [])
+
+  useEffect(() => {
+    function onClickOutside(e) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [])
+
+  return (
+    <div ref={wrapRef} className="ac-breed-wrap">
+      <input
+        className={`ac-form-input${error ? ' ac-form-input--error' : ''}`}
+        type="text"
+        placeholder="Type to search breed…"
+        value={value}
+        autoComplete="off"
+        onChange={e => { onChange(e.target.value); setOpen(true) }}
+        onFocus={() => setOpen(true)}
+      />
+      {open && suggestions.length > 0 && (
+        <ul className="ac-breed-dropdown">
+          {suggestions.map(breed => (
+            <li
+              key={breed}
+              className="ac-breed-option"
+              onMouseDown={e => { e.preventDefault(); onChange(breed); setOpen(false) }}
+            >
+              {breed}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
 
 /* ── Password strength (reused from SignUp) ── */
 function getStrength(pw) {
@@ -193,7 +265,12 @@ function PetsSection({ pets, setPets }) {
   const [petForm,  setPetForm]  = useState(EMPTY_PET)
   const [errors,   setErrors]   = useState({})
 
-  const setF = k => e => { setPetForm(p => ({ ...p, [k]: e.target.value })); setErrors(p => ({ ...p, [k]: '' })) }
+  const setF = k => e => {
+    const val = e.target.value
+    // Switching pet type clears the breed since breeds are type-specific
+    setPetForm(p => ({ ...p, [k]: val, ...(k === 'type' ? { breed: '' } : {}) }))
+    setErrors(p => ({ ...p, [k]: '' }))
+  }
 
   const validate = () => {
     const e = {}
@@ -246,8 +323,12 @@ function PetsSection({ pets, setPets }) {
         </div>
         <div className={`ac-form-field ${errors.breed ? 'ac-form-field--error' : ''}`}>
           <label className="ac-form-label">Breed</label>
-          <input className="ac-form-input" type="text" placeholder="e.g. Labrador"
-            value={petForm.breed} onChange={setF('breed')} />
+          <BreedAutocomplete
+            value={petForm.breed}
+            petType={petForm.type}
+            onChange={val => { setPetForm(p => ({ ...p, breed: val })); setErrors(p => ({ ...p, breed: '' })) }}
+            error={!!errors.breed}
+          />
           {errors.breed && <p className="ac-form-error">{errors.breed}</p>}
         </div>
         <div className={`ac-form-field ${errors.age ? 'ac-form-field--error' : ''}`}>

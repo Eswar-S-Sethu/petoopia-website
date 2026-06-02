@@ -461,6 +461,38 @@
 .ac-pet-btn--remove { color: #d63031; border-color: #ffd5d5; }
 .ac-pet-btn--remove:hover { border-color: #d63031; background: #fff5f5; }
 
+/* ── Breed autocomplete ── */
+.ac-breed-wrap {
+  position: relative;
+}
+.ac-breed-dropdown {
+  position: absolute;
+  top: calc(100% - 1px);
+  left: 0;
+  right: 0;
+  background: var(--white);
+  border: 1.5px solid var(--black);
+  border-top: none;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 200;
+  list-style: none;
+  padding: 4px 0;
+  margin: 0;
+  box-shadow: var(--shadow-md);
+}
+.ac-breed-option {
+  padding: 9px 13px;
+  font-size: 13.5px;
+  font-family: var(--font-body);
+  color: var(--black);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.ac-breed-option:hover { background: var(--gray-50); }
+.ac-form-input--error { border-color: #d63031; }
+
 /* ── Orders ── */
 .ac-order-list { display: flex; flex-direction: column; gap: 12px; }
 .ac-order {
