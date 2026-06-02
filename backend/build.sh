@@ -9,6 +9,28 @@ python manage.py makemigrations products users
 python manage.py migrate
 python manage.py migrate --database=products_db
 
+# Create superuser from env vars if it doesn't already exist
+# Set ADMIN_EMAIL, ADMIN_PASSWORD (and optionally ADMIN_NAME) in Render environment variables.
+python manage.py shell -c "
+import os
+from django.contrib.auth.models import User
+email    = os.environ.get('ADMIN_EMAIL', '')
+password = os.environ.get('ADMIN_PASSWORD', '')
+name     = os.environ.get('ADMIN_NAME', 'Admin')
+if email and password:
+    if not User.objects.filter(username=email).exists():
+        parts = name.split(' ', 1)
+        User.objects.create_superuser(
+            username=email, email=email, password=password,
+            first_name=parts[0], last_name=parts[1] if len(parts) > 1 else ''
+        )
+        print(f'Superuser {email} created.')
+    else:
+        print('Superuser already exists — skipping.')
+else:
+    print('ADMIN_EMAIL/ADMIN_PASSWORD not set — skipping superuser creation.')
+"
+
 # Seed products only when the table is empty (safe on re-deploys)
 python manage.py shell -c "
 from products.models import Product
