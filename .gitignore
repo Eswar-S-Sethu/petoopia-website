@@ -1,0 +1,12 @@
+node_modules
+package-lock.json
+.env
+.DS_Store
+# Virtual environment folder
+venv/
+.venv/
+env/
+
+# Python cache files
+__pycache__/
+*.pyc

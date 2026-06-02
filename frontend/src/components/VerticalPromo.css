@@ -1,0 +1,167 @@
+/* ============================================
+   VERTICAL PROMO — sidebar carousel
+   Mirrors the Hero exactly, scaled to sidebar width
+   ============================================ */
+
+.vpromo {
+  position: relative;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  height: 350px;          /* fixed height so carousel never jumps */
+  display: flex;
+  align-items: flex-start;
+  transition: background 0.4s ease;
+}
+
+.vpromo--dark  { background: var(--black); }
+.vpromo--light { background: var(--off-white); border: 1.5px solid var(--gray-200); }
+
+/* ── Dot-matrix background ── */
+.vpromo__bg-pattern {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(128,128,128,0.18) 1px, transparent 1px);
+  background-size: 22px 22px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Slide body ── */
+.vpromo__body {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  padding: 28px 22px 56px; /* bottom padding clears the dots */
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  transition: opacity 0.32s ease, transform 0.32s ease;
+}
+.vpromo__body--fade {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+/* Tag */
+.vpromo__tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 2px;
+  width: fit-content;
+  line-height: 1;
+}
+.vpromo--dark  .vpromo__tag { background: rgba(255,255,255,0.12); color: var(--gray-300); }
+.vpromo--light .vpromo__tag { background: rgba(0,0,0,0.07);       color: var(--gray-600); }
+
+/* Headline */
+.vpromo__headline {
+  font-family: var(--font-display);
+  font-size: clamp(18px, 2vw, 22px);
+  line-height: 1.12;
+  letter-spacing: 0.3px;
+}
+.vpromo--dark  .vpromo__headline { color: var(--white); }
+.vpromo--light .vpromo__headline { color: var(--black); }
+
+/* Sub */
+.vpromo__sub {
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+.vpromo--dark  .vpromo__sub { color: var(--gray-400); }
+.vpromo--light .vpromo__sub { color: var(--gray-600); }
+
+/* CTA row */
+.vpromo__ctas {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+/* Buttons */
+.vpromo__btn {
+  padding: 9px 16px;
+  font-size: 12.5px;
+  font-weight: 700;
+  font-family: var(--font-body);
+  border-radius: var(--radius-sm);
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.vpromo__btn:hover  { transform: translateY(-1px); }
+.vpromo__btn:active { transform: scale(0.97); }
+
+.vpromo__btn--on-dark  { background: var(--white); color: var(--black);
+  box-shadow: 0 3px 10px rgba(255,255,255,0.12); }
+.vpromo__btn--on-light { background: var(--black); color: var(--white);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.15); }
+
+.vpromo__btn--sec-dark {
+  background: transparent;
+  color: var(--white);
+  border: 1.5px solid rgba(255,255,255,0.32);
+}
+.vpromo__btn--sec-dark:hover  { border-color: rgba(255,255,255,0.65); }
+
+.vpromo__btn--sec-light {
+  background: transparent;
+  color: var(--black);
+  border: 1.5px solid rgba(0,0,0,0.28);
+}
+.vpromo__btn--sec-light:hover { border-color: var(--black); }
+
+/* ── Prev / Next arrows ── */
+.vpromo__arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 22px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  opacity: 0.45;
+  transition: opacity 0.15s;
+}
+.vpromo--dark  .vpromo__arrow { background: rgba(255,255,255,0.1); color: var(--white); }
+.vpromo--light .vpromo__arrow { background: rgba(0,0,0,0.08);       color: var(--black); }
+.vpromo__arrow:hover { opacity: 1; }
+
+.vpromo__arrow--prev { left: 8px; }
+.vpromo__arrow--next { right: 8px; }
+
+/* ── Dot indicators ── */
+.vpromo__dots {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  z-index: 10;
+}
+.vpromo__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  transition: all 0.25s ease;
+}
+.vpromo--dark  .vpromo__dot { background: rgba(255,255,255,0.28); }
+.vpromo--light .vpromo__dot { background: rgba(0,0,0,0.22); }
+
+.vpromo__dot--active {
+  width: 22px !important;
+  border-radius: 4px !important;
+}
+.vpromo--dark  .vpromo__dot--active { background: var(--white) !important; }
+.vpromo--light .vpromo__dot--active { background: var(--black) !important; }

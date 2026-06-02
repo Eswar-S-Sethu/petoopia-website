@@ -1,0 +1,76 @@
+/* ============================================
+   SHARED: BREADCRUMB (used on Cart, Wishlist, Shop, Checkout, etc.)
+   ============================================ */
+.pg-breadcrumb {
+  background: var(--white);
+  border-bottom: 1px solid #e8e8e8;
+  padding: 10px 0;
+}
+.pg-breadcrumb .container {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: #555;
+}
+.pg-breadcrumb__link      { color: #555; text-decoration: none; }
+.pg-breadcrumb__link:hover { color: var(--black); text-decoration: underline; }
+.pg-breadcrumb__sep       { color: #aaa; }
+
+/* ============================================
+   SHOP LAYOUT — products left, sidebar right
+   ============================================ */
+.shop-layout {
+  background: var(--off-white);
+  padding-top: 52px;
+  /* no bottom padding — sidebar must reach the footer */
+}
+
+.shop-layout__inner {
+  display: flex;
+  align-items: stretch;   /* both columns grow to equal height */
+  gap: 0;
+}
+
+/* ── Products column ── */
+.shop-layout__products {
+  flex: 1;
+  min-width: 0;
+  padding-bottom: 60px;
+}
+
+/* ── Sidebar column — stretches full height ── */
+.shop-layout__sidebar {
+  flex-shrink: 0;
+  width: 308px;
+  background: var(--white);
+  border-left: 1px solid var(--gray-200);
+}
+
+/* Inner wrapper is sticky so the carousel follows the scroll */
+.shop-layout__sidebar-inner {
+  position: sticky;
+  top: 128px;          /* clears the fixed navbar */
+  padding: 20px 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ── Responsive ── */
+@media (max-width: 1100px) {
+  .shop-layout__sidebar { width: 270px; }
+}
+@media (max-width: 860px) {
+  .shop-layout__inner    { flex-direction: column; }
+  .shop-layout__sidebar  {
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid var(--gray-200);
+  }
+  .shop-layout__sidebar-inner {
+    position: static;
+    padding: 24px 0 32px;
+  }
+}

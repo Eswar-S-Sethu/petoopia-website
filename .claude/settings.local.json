@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install)",
+      "Bash(npx vite build)",
+      "Bash(npm install:*)",
+      "Bash(venv/Scripts/python manage.py shell:*)",
+      "Bash(venv/Scripts/python:*)",
+      "Bash(ipconfig:*)",
+      "Bash(findstr:*)",
+      "Bash(python -c:*)",
+      "Bash(venvScriptsactivate)",
+      "Bash(python manage.py runserver:*)",
+      "Bash(source:*)"
+    ]
+  }
+}
