@@ -115,6 +115,82 @@ function UserForm({ initial, onSave, onCancel }) {
   )
 }
 
+/* ── Add user form ── */
+function AddUserForm({ onSave, onCancel }) {
+  const [form, setForm]     = useState({ name: '', email: '', mobile: '', password: '', is_staff: false })
+  const [saving, setSaving] = useState(false)
+  const [error, setError]   = useState('')
+
+  const set = key => e => {
+    const val = e.target.type === 'checkbox' ? e.target.checked : e.target.value
+    setForm(p => ({ ...p, [key]: val }))
+  }
+
+  const submit = async e => {
+    e.preventDefault()
+    setSaving(true)
+    setError('')
+    try {
+      await onSave(form)
+    } catch (err) {
+      setError(err.message)
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="adm-modal-backdrop" onClick={e => e.target === e.currentTarget && onCancel()}>
+      <div className="adm-modal">
+        <div className="adm-modal__header">
+          <h2>Add New User</h2>
+          <button className="adm-modal__close" onClick={onCancel}>×</button>
+        </div>
+
+        {error && <div className="adm-error">{error}</div>}
+
+        <form className="adm-form" onSubmit={submit}>
+          <div className="adm-form__grid">
+
+            <div className="adm-field adm-field--full">
+              <label>Full Name *</label>
+              <input value={form.name} onChange={set('name')} required placeholder="Full name" />
+            </div>
+
+            <div className="adm-field adm-field--full">
+              <label>Email *</label>
+              <input type="email" value={form.email} onChange={set('email')} required placeholder="email@example.com" />
+            </div>
+
+            <div className="adm-field adm-field--full">
+              <label>Mobile</label>
+              <input value={form.mobile} onChange={set('mobile')} placeholder="Phone number" />
+            </div>
+
+            <div className="adm-field adm-field--full">
+              <label>Password *</label>
+              <input type="password" value={form.password} onChange={set('password')} required minLength={8} placeholder="Min. 8 characters" />
+            </div>
+
+            <div className="adm-field adm-field--checks">
+              <label className="adm-check">
+                <input type="checkbox" checked={form.is_staff} onChange={set('is_staff')} />
+                Staff / Admin
+              </label>
+            </div>
+          </div>
+
+          <div className="adm-modal__footer">
+            <button type="button" className="adm-btn adm-btn--ghost" onClick={onCancel}>Cancel</button>
+            <button type="submit" className="adm-btn adm-btn--primary" disabled={saving}>
+              {saving ? 'Creating…' : 'Create User'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 /* ── Product form (add / edit) ── */
 function ProductForm({ initial, onSave, onCancel }) {
   const [form, setForm]     = useState(initial)
@@ -270,6 +346,7 @@ export default function AdminPanel() {
   const [deleteId,     setDeleteId]     = useState(null)
   const [editUser,     setEditUser]     = useState(null)   // null | user object
   const [deleteUserId, setDeleteUserId] = useState(null)
+  const [addingUser,   setAddingUser]   = useState(false)
   const [toast,        setToast]        = useState('')
 
   // ── Access guard ──────────────────────────────────────────────────────────
@@ -344,6 +421,22 @@ export default function AdminPanel() {
   }
 
   // ── User CRUD ────────────────────────────────────────────────────────────
+  const handleAddUser = async form => {
+    await api.post('/users/register/', {
+      name: form.name, email: form.email,
+      mobile: form.mobile, password: form.password,
+    })
+    if (form.is_staff) {
+      const all = await api.get('/users/admin/users/')
+      const created = all.find(u => u.email === form.email.toLowerCase())
+      if (created) await api.put(`/users/admin/users/${created.id}/`, { is_staff: true })
+    }
+    setAddingUser(false)
+    showToast('User created.')
+    loadUsers()
+    loadStats()
+  }
+
   const handleSaveUser = async payload => {
     await api.put(`/users/admin/users/${editUser.id}/`, payload)
     setUsers(prev => prev.map(u => u.id === editUser.id ? { ...u, ...payload, name: payload.name } : u))
@@ -557,6 +650,9 @@ export default function AdminPanel() {
                 <h1 className="adm-page-title">Users</h1>
                 <p className="adm-page-sub">{users.length} registered accounts</p>
               </div>
+              <button className="adm-btn adm-btn--primary" onClick={() => setAddingUser(true)}>
+                + Add User
+              </button>
             </div>
 
             <div className="adm-toolbar">
@@ -648,6 +744,14 @@ export default function AdminPanel() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── Add user modal ── */}
+      {addingUser && (
+        <AddUserForm
+          onSave={handleAddUser}
+          onCancel={() => setAddingUser(false)}
+        />
       )}
 
       {/* ── Edit user modal ── */}
