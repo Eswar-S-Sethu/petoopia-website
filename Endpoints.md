@@ -1,156 +1,91 @@
-# Petoopia API — Endpoint Reference
+# Petoopia — API Reference for iOS
+
+This file is the authoritative reference for every backend endpoint.
+All shapes are taken directly from the Django views, serializers, and models.
 
 ---
 
-## Mobile / Network Setup
+## Base URL
 
-### Base URLs
-
-| Environment | Base URL |
-|---|---|
-| Web (same machine) | `http://localhost:8000/api` |
-| **Mobile / LAN** | **`http://172.20.10.2:8000/api`** |
-| Production | `https://your-domain.com/api` *(to be configured)* |
-
-The mobile base URL uses the PC's local IP address. The phone and the PC must be on the **same Wi-Fi network**. For production replace with a real domain over HTTPS.
-
-### Starting the server for mobile access
-
-```bash
-# Standard (web only — localhost:8000)
-python manage.py runserver
-
-# Mobile-accessible (all network interfaces — required for phones/emulators)
-python manage.py runserver 0.0.0.0:8000
+```
+Production:  https://petoopia-web-service.onrender.com/api
+Local dev:   http://localhost:8000/api
 ```
 
-Without `0.0.0.0`, Django only listens on `127.0.0.1` (loopback) and is unreachable from any other device. With `0.0.0.0` it binds to all interfaces so phones, tablets, and emulators on the same network can connect.
-
-### What is already configured for mobile
-
-| Feature | Status | Notes |
-|---|---|---|
-| `ALLOWED_HOSTS` | `['*']` | Accepts requests from any host/IP |
-| CORS | `CORS_ALLOW_ALL_ORIGINS = True` | Allows all origins — covers native apps, Expo web, and webviews |
-| JWT authentication | Enabled | Stateless — no cookies or sessions needed |
-| CSRF | Not required | All protected endpoints use `Authorization: Bearer` header |
-| JSON responses | Always | No HTML error pages |
-| Refresh token rotation | Enabled | New refresh token issued on every refresh call |
-| Public product endpoints | No auth needed | `/api/products/` and `/api/products/{id}/` work without a token |
-
-### CORS note for mobile developers
-
-Native mobile apps (iOS Swift/Kotlin, React Native, Flutter) **do not enforce CORS** — they never send an `Origin` header, so CORS headers are irrelevant for them. CORS only matters for browser-based contexts such as Expo web or in-app WebViews. Either way, the server is configured to allow all origins.
-
-### Production checklist (before going live)
-
-```python
-# settings.py changes for production:
-
-DEBUG = False
-
-ALLOWED_HOSTS = ['api.yourdomain.com']   # your real domain only
-
-CORS_ALLOW_ALL_ORIGINS = False
-CORS_ALLOWED_ORIGINS = [
-    'https://yourdomain.com',
-    'https://www.yourdomain.com',
-]
-
-SECRET_KEY = '<generate a new random key>'  # never reuse the dev key
-```
-
-Generate a new secret key with:
-```bash
-python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
-```
+Every path below is relative to this base. **All URLs require a trailing slash.**
 
 ---
 
-## Authentication & Token Management
+## iOS-Specific Notes
 
-All request and response bodies are JSON.
-Protected endpoints require the header:
+- **No CORS handling needed.** CORS is browser-only; URLSession/Alamofire requests go through without an `Origin` header.
+- **Store tokens in Keychain**, not UserDefaults.
+- **Content-Type header** must be `application/json` on every request that sends a body.
+- **Authorization header** format: `Authorization: Bearer <access_token>`
+- **Decimal fields** (`price`, `original_price`, `product_price`, `product_original_price`) are returned as **strings** by Django REST Framework (e.g. `"29.99"`). Parse with `Decimal(string)` or `Double(string)`.
+- **Token rotation:** every `/users/token/refresh/` call issues a new access token. The refresh token itself does not rotate — keep using the same one until it expires (30 days).
+- **Token lifetimes:** access = 2 hours, refresh = 30 days.
+- **Silent refresh pattern:** on any 401, attempt one token refresh and retry the original request. If the refresh also fails, clear tokens and navigate to login.
+
+---
+
+## Error Format
+
+All errors return JSON. Most use a `detail` key; field-level validation errors use the field name as the key.
+
+```json
+{ "detail": "Incorrect email or password." }
+
+{ "email": "An account with this email already exists." }
 ```
-Authorization: Bearer <access_token>
-```
 
-### Token lifetimes
-
-| Token | Lifespan | Notes |
-|---|---|---|
-| Access token | 2 hours | Send in `Authorization` header on every request |
-| Refresh token | 30 days | Use to get a new access token; a new refresh token is also issued each time (rotation) |
-
-### Secure token storage (mobile)
-
-| Platform | Recommended storage |
-|---|---|
-| iOS (Swift/Obj-C) | Keychain Services |
-| Android (Kotlin/Java) | EncryptedSharedPreferences |
-| React Native | `react-native-keychain` or Expo SecureStore |
-| Flutter | `flutter_secure_storage` |
-
-Never store tokens in plain SharedPreferences, AsyncStorage (unencrypted), or UserDefaults.
-
-### Refresh flow implementation
-
-1. Make any API request with the stored access token.
-2. If the response is `401 Unauthorized`, call `POST /api/users/token/refresh/` with the stored refresh token.
-3. Store the new access token (and new refresh token if returned).
-4. Retry the original failed request with the new access token.
-5. If the refresh call also returns `401`, clear both tokens and redirect the user to the login screen.
-
-```
-Request → 401 → POST /token/refresh/ → new tokens → retry request
-                       ↓ 401
-                  Clear tokens + go to login
-```
+HTTP status codes used: `200`, `201`, `204` (no body), `400`, `401`, `403`, `404`.
 
 ---
 
 ## Authentication
 
-### Register
-```
-POST /users/register/
-```
-Creates a new customer account.
+### POST `/users/register/`
+
+Creates a new user account. No auth required.
 
 **Request body**
 ```json
 {
-  "name":     "John Smith",
-  "email":    "john@example.com",
-  "mobile":   "0400000000",
-  "password": "securepassword"
+  "name":     "Jane Smith",
+  "email":    "jane@example.com",
+  "password": "secret123",
+  "mobile":   "0412345678"
 }
 ```
+
+`mobile` is optional. `name` is split on the first space into `first_name` / `last_name`.
+
 **Response `201`**
 ```json
 { "detail": "Account created successfully." }
 ```
-**Errors**
-| Status | Reason |
-|--------|--------|
-| 400 | Missing name/email/password |
-| 400 | `{ "email": "An account with this email already exists." }` |
+
+**Errors `400`**
+```json
+{ "detail": "Name, email, and password are required." }
+{ "email":  "An account with this email already exists." }
+```
 
 ---
 
-### Login
-```
-POST /users/login/
-```
-Returns JWT access + refresh tokens and a user payload.
+### POST `/users/login/`
+
+Returns a JWT pair and the user object. No auth required.
 
 **Request body**
 ```json
 {
-  "email":    "john@example.com",
-  "password": "securepassword"
+  "email":    "jane@example.com",
+  "password": "secret123"
 }
 ```
+
 **Response `200`**
 ```json
 {
@@ -158,92 +93,87 @@ Returns JWT access + refresh tokens and a user payload.
   "refresh": "<JWT refresh token>",
   "user": {
     "id":           1,
-    "name":         "John Smith",
-    "email":        "john@example.com",
+    "name":         "Jane Smith",
+    "email":        "jane@example.com",
     "is_staff":     false,
-    "phone":        "0400000000",
-    "member_since": "May 2026"
+    "phone":        "0412345678",
+    "member_since": "June 2024"
   }
 }
 ```
-**Errors**
-| Status | Reason |
-|--------|--------|
-| 400 | `{ "detail": "Incorrect email or password." }` |
 
-**Notes**
-- Access token expires in **2 hours**.
-- Refresh token expires in **30 days**.
-- Store both tokens securely (Keychain / EncryptedSharedPreferences on mobile).
+`member_since` is a formatted string `"Month YYYY"`.
+
+**Error `400`**
+```json
+{ "detail": "Incorrect email or password." }
+```
 
 ---
 
-### Refresh Access Token
-```
-POST /users/token/refresh/
-```
-Exchange a valid refresh token for a new access token.
+### POST `/users/token/refresh/`
+
+Issues a new access token. No auth required.
 
 **Request body**
 ```json
-{ "refresh": "<JWT refresh token>" }
+{ "refresh": "<saved refresh token>" }
 ```
+
 **Response `200`**
 ```json
 { "access": "<new JWT access token>" }
 ```
-**Errors**
-| Status | Reason |
-|--------|--------|
-| 400 | Refresh token missing |
-| 401 | Invalid or expired refresh token |
+
+The refresh token itself is not rotated — keep using the same refresh token.
+
+**Error `401`**
+```json
+{ "detail": "Invalid or expired refresh token." }
+```
 
 ---
 
-## User Profile
+## Profile
 
-### Get Profile
-```
-GET /users/profile/
-Auth: Required
-```
+All profile endpoints require `Authorization: Bearer <access_token>`.
+
+---
+
+### GET `/users/profile/`
+
 **Response `200`**
 ```json
 {
   "id":           1,
-  "name":         "John Smith",
-  "email":        "john@example.com",
+  "name":         "Jane Smith",
+  "email":        "jane@example.com",
   "is_staff":     false,
-  "phone":        "0400000000",
-  "member_since": "May 2026"
+  "phone":        "0412345678",
+  "member_since": "June 2024"
 }
 ```
 
 ---
 
-### Update Profile
-```
-PUT /users/profile/
-Auth: Required
-```
-Only the fields you provide are updated.
+### PUT `/users/profile/`
 
-**Request body** (all optional)
+Send only the fields you want to change. Both are optional.
+
+**Request body**
 ```json
 {
-  "name":  "John Smith Jr.",
-  "phone": "0411111111"
+  "name":  "Jane Doe",
+  "phone": "0499999999"
 }
 ```
-**Response `200`** — same shape as Get Profile.
+
+**Response `200`** — same shape as GET profile
 
 ---
 
-### Change Password
-```
-POST /users/change-password/
-Auth: Required
-```
+### POST `/users/change-password/`
+
 **Request body**
 ```json
 {
@@ -251,25 +181,30 @@ Auth: Required
   "new_password":     "newpassword123"
 }
 ```
+
 **Response `200`**
 ```json
 { "detail": "Password updated successfully." }
 ```
-**Errors**
-| Status | Reason |
-|--------|--------|
-| 400 | Current password incorrect |
-| 400 | New password shorter than 8 characters |
+
+**Errors `400`**
+```json
+{ "detail": "Incorrect current password." }
+{ "detail": "New password must be at least 8 characters." }
+```
 
 ---
 
 ## Pets
 
-### List Pets
-```
-GET /users/pets/
-Auth: Required
-```
+All pet endpoints require `Authorization: Bearer <access_token>`.
+
+---
+
+### GET `/users/pets/`
+
+Returns all pets for the authenticated user, ordered by `created_at` ascending.
+
 **Response `200`**
 ```json
 [
@@ -278,404 +213,458 @@ Auth: Required
     "name":       "Buddy",
     "pet_type":   "Dogs",
     "breed":      "Labrador",
-    "age":        "2 years",
-    "emoji":      "🐶",
-    "created_at": "2026-05-01T10:00:00Z"
+    "age":        "3 years",
+    "emoji":      "🐕",
+    "created_at": "2024-06-01T10:00:00.000000Z"
   }
 ]
 ```
 
+`emoji` is set automatically by the server based on `pet_type`:
+- `"Dogs"` → `"🐕"`
+- `"Cats"` → `"🐈"`
+- `"Birds"` → `"🦜"`
+
 ---
 
-### Add Pet
-```
-POST /users/pets/
-Auth: Required
-```
+### POST `/users/pets/`
+
 **Request body**
 ```json
 {
   "name":  "Buddy",
   "type":  "Dogs",
   "breed": "Labrador",
-  "age":   "2 years"
+  "age":   "3 years"
 }
 ```
-`type` accepted values: `Dogs`, `Cats`, `Birds`, `Fish`, `Reptiles`, `Small Pets`
-`emoji` is set automatically based on `type`.
 
-**Response `201`** — same shape as a single item from List Pets.
+> The request field is `"type"` but the response field is `"pet_type"`.
 
----
+**`type` allowed values:** `"Dogs"`, `"Cats"`, `"Birds"`
 
-### Update Pet
-```
-PUT /users/pets/{id}/
-Auth: Required
-```
-**Request body** — same fields as Add Pet (all optional).
-**Response `200`** — updated pet object.
-**Errors:** 404 if pet not found or does not belong to the user.
+**Response `201`** — single pet object (same shape as list item above)
 
 ---
 
-### Delete Pet
+### PUT `/users/pets/<id>/`
+
+Omitted fields keep their current values.
+
+**Request body**
+```json
+{
+  "name":  "Max",
+  "type":  "Dogs",
+  "breed": "Golden Retriever",
+  "age":   "4 years"
+}
 ```
-DELETE /users/pets/{id}/
-Auth: Required
+
+**Response `200`** — updated pet object
+
+**Error `404`**
+```json
+{ "detail": "Not found." }
 ```
-**Response `204 No Content`**
-**Errors:** 404 if not found.
+
+---
+
+### DELETE `/users/pets/<id>/`
+
+**Response `204`** (no body)
 
 ---
 
 ## Cart
 
-### Get Cart
-```
-GET /users/cart/
-Auth: Required
-```
+All cart endpoints require `Authorization: Bearer <access_token>`.
+
+Product fields are copied at add-time (denormalised) because products live in a separate database. Always send the full product snapshot when adding to cart.
+
+---
+
+### GET `/users/cart/`
+
 **Response `200`**
 ```json
 [
   {
     "id":               1,
-    "product_id":       5,
-    "product_name":     "Pedigree Adult Dry Dog Food",
-    "product_price":    "49.99",
-    "product_emoji":    "🐶",
+    "product_id":       7,
+    "product_name":     "Kong Classic Dog Toy",
+    "product_price":    "29.99",
+    "product_emoji":    "🦴",
     "product_category": "Dogs",
     "quantity":         2,
-    "created_at":       "2026-05-27T08:00:00Z"
+    "created_at":       "2024-06-01T10:00:00.000000Z"
   }
 ]
 ```
 
+`product_price` is a decimal string — parse before arithmetic.
+
 ---
 
-### Add Item to Cart
-```
-POST /users/cart/
-Auth: Required
-```
-If the product already exists in the cart, `quantity` is incremented.
+### POST `/users/cart/`
+
+Adds a product. If the same `product_id` is already in the cart, the `quantity` is **incremented** by the amount sent (not replaced).
 
 **Request body**
 ```json
 {
-  "product_id":       5,
-  "product_name":     "Pedigree Adult Dry Dog Food",
-  "product_price":    49.99,
-  "product_emoji":    "🐶",
+  "product_id":       7,
+  "product_name":     "Kong Classic Dog Toy",
+  "product_price":    29.99,
+  "product_emoji":    "🦴",
   "product_category": "Dogs",
   "quantity":         1
 }
 ```
-**Response `201`** (new item) or **`200`** (qty incremented) — same shape as a cart item.
-**Errors:** 400 if `product_id` is missing.
+
+**Response `201`** — newly added item
+**Response `200`** — existing item with incremented quantity
+Both return the cart item object.
+
+**Error `400`**
+```json
+{ "detail": "product_id is required." }
+```
 
 ---
 
-### Update Cart Item Quantity
-```
-PUT /users/cart/{id}/
-Auth: Required
-```
-`{id}` is the **CartItem ID** (not the product ID).
+### PUT `/users/cart/<id>/`
+
+Sets the exact quantity. If `quantity < 1`, the item is deleted and `204` is returned.
 
 **Request body**
 ```json
 { "quantity": 3 }
 ```
-If `quantity` < 1 the item is deleted and `204` is returned.
-**Response `200`** — updated cart item, or `204` if deleted.
+
+**Response `200`** — updated cart item, or `204` if quantity < 1 caused deletion
 
 ---
 
-### Remove Cart Item
-```
-DELETE /users/cart/{id}/
-Auth: Required
-```
-`{id}` is the **CartItem ID**.
-**Response `204 No Content`**
+### DELETE `/users/cart/<id>/`
+
+Removes a single item.
+
+**Response `204`** (no body)
 
 ---
 
-### Clear Entire Cart
-```
-DELETE /users/cart/
-Auth: Required
-```
-Removes all items for the authenticated user.
-**Response `204 No Content`**
+### DELETE `/users/cart/`
+
+Clears the entire cart.
+
+**Response `204`** (no body)
 
 ---
 
 ## Wishlist
 
-### Get Wishlist
-```
-GET /users/wishlist/
-Auth: Required
-```
+All wishlist endpoints require `Authorization: Bearer <access_token>`.
+
+Same denormalisation as cart. Each product can appear at most once per wishlist.
+
+---
+
+### GET `/users/wishlist/`
+
 **Response `200`**
 ```json
 [
   {
-    "id":                    1,
-    "product_id":            3,
-    "product_name":          "Royal Canin Indoor Cat Food",
-    "product_price":         "59.99",
-    "product_original_price":"79.99",
-    "product_emoji":         "🐱",
-    "product_category":      "Cats",
-    "in_stock":              true,
-    "discount_pct":          25,
-    "created_at":            "2026-05-27T08:00:00Z"
+    "id":                     1,
+    "product_id":             7,
+    "product_name":           "Kong Classic Dog Toy",
+    "product_price":          "29.99",
+    "product_original_price": "39.99",
+    "product_emoji":          "🦴",
+    "product_category":       "Dogs",
+    "in_stock":               true,
+    "discount_pct":           25,
+    "created_at":             "2024-06-01T10:00:00.000000Z"
   }
 ]
 ```
 
+`discount_pct` is a server-computed integer. `0` means no discount.
+
 ---
 
-### Add to Wishlist
-```
-POST /users/wishlist/
-Auth: Required
-```
+### POST `/users/wishlist/`
+
 **Request body**
 ```json
 {
-  "product_id":             3,
-  "product_name":           "Royal Canin Indoor Cat Food",
-  "product_price":          59.99,
-  "product_original_price": 79.99,
-  "product_emoji":          "🐱",
-  "product_category":       "Cats",
+  "product_id":             7,
+  "product_name":           "Kong Classic Dog Toy",
+  "product_price":          29.99,
+  "product_original_price": 39.99,
+  "product_emoji":          "🦴",
+  "product_category":       "Dogs",
   "in_stock":               true
 }
 ```
-**Response `201`** — wishlist item object.
-**Errors**
-| Status | Reason |
-|--------|--------|
-| 400 | `product_id` missing |
-| 400 | `{ "detail": "Already in wishlist." }` |
+
+**Response `201`** — the created wishlist item object
+
+**Errors `400`**
+```json
+{ "detail": "Already in wishlist." }
+{ "detail": "product_id is required." }
+```
 
 ---
 
-### Remove from Wishlist
+### DELETE `/users/wishlist/<id>/`
+
+**Response `204`** (no body)
+
+**Error `404`**
+```json
+{ "detail": "Not found." }
 ```
-DELETE /users/wishlist/{id}/
-Auth: Required
-```
-`{id}` is the **WishlistItem ID** (returned in the list).
-**Response `204 No Content`**
-**Errors:** 404 if not found.
 
 ---
 
 ## Products
 
-All product endpoints are public (read). Write operations require a staff account.
+Read endpoints are **public** (no auth required).
+Write endpoints (POST, PUT, PATCH, DELETE) require a Bearer token with `is_staff: true`.
 
-### List Products
-```
-GET /products/
-Auth: None
-```
+---
+
+### GET `/products/`
+
+Returns a **lightweight** list — no `description`, `highlights`, or `specs`.
 
 **Query parameters**
 
-| Parameter        | Type    | Example                        | Description                     |
-|------------------|---------|--------------------------------|---------------------------------|
-| `category`       | string  | `?category=Dogs`               | Filter by category              |
-| `is_best_seller` | bool    | `?is_best_seller=true`         | Best sellers only               |
-| `is_new_arrival` | bool    | `?is_new_arrival=true`         | New arrivals only               |
-| `in_stock`       | bool    | `?in_stock=true`               | In-stock products only          |
-| `search`         | string  | `?search=pedigree`             | Name contains (case-insensitive)|
+| Param | Example | Effect |
+|---|---|---|
+| `category` | `?category=Dogs` | Filter (`Dogs`, `Cats`, `Birds`) |
+| `is_best_seller` | `?is_best_seller=true` | Best sellers only |
+| `is_new_arrival` | `?is_new_arrival=true` | New arrivals only |
+| `in_stock` | `?in_stock=true` | In-stock only |
+| `search` | `?search=kong` | Case-insensitive name match |
 
-**Response `200`** — array of lightweight product objects:
+**Response `200`**
 ```json
 [
   {
-    "id":            1,
-    "name":          "Pedigree Adult Dry Dog Food",
-    "category":      "Dogs",
-    "price":         "49.99",
-    "original_price":"69.99",
-    "rating":        4.5,
-    "reviews":       2847,
-    "badge":         "Best Seller",
-    "emoji":         "🐶",
-    "in_stock":      true,
-    "is_best_seller":true,
-    "is_new_arrival":false,
-    "discount_pct":  29
+    "id":             7,
+    "name":           "Kong Classic Dog Toy",
+    "category":       "Dogs",
+    "price":          "29.99",
+    "original_price": "39.99",
+    "rating":         4.8,
+    "reviews":        1243,
+    "badge":          "Best Seller",
+    "emoji":          "🦴",
+    "in_stock":       true,
+    "is_best_seller": true,
+    "is_new_arrival": false,
+    "discount_pct":   25
   }
 ]
 ```
 
----
-
-### Get Product Detail
-```
-GET /products/{id}/
-Auth: None
-```
-**Response `200`** — full product object including description, highlights, and specs:
-```json
-{
-  "id":            1,
-  "name":          "Pedigree Adult Dry Dog Food",
-  "category":      "Dogs",
-  "price":         "49.99",
-  "original_price":"69.99",
-  "rating":        4.5,
-  "reviews":       2847,
-  "badge":         "Best Seller",
-  "emoji":         "🐶",
-  "in_stock":      true,
-  "is_best_seller":true,
-  "is_new_arrival":false,
-  "discount_pct":  29,
-  "description":   "Full product description…",
-  "highlights":    ["Highlight 1", "Highlight 2", "Highlight 3", "Highlight 4"],
-  "specs": {
-    "Weight":    "15 kg",
-    "Life Stage":"Adult",
-    "Flavour":   "Chicken"
-  }
-}
-```
-**Errors:** 404 if not found.
+`badge` may be `null`. `price` and `original_price` are decimal strings.
 
 ---
 
-### Create Product
-```
-POST /products/
-Auth: Staff required
-```
-**Request body**
-```json
-{
-  "name":          "New Product Name",
-  "category":      "Dogs",
-  "price":         49.99,
-  "original_price":69.99,
-  "rating":        4.2,
-  "reviews":       0,
-  "badge":         "New",
-  "emoji":         "🦴",
-  "in_stock":      true,
-  "is_best_seller":false,
-  "is_new_arrival":true,
-  "description":   "Product description…",
-  "highlights":    ["Feature 1", "Feature 2"],
-  "specs":         { "Weight": "500g" }
-}
-```
-**Response `201`** — full product object.
+### GET `/products/<id>/`
 
----
+Returns the **full** product object.
 
-### Update Product
-```
-PUT /products/{id}/
-Auth: Staff required
-```
-**Request body** — same fields as Create (all required for PUT, use PATCH for partial).
-
-**Response `200`** — updated product object.
-
----
-
-### Delete Product
-```
-DELETE /products/{id}/
-Auth: Staff required
-```
-**Response `204 No Content`**
-
----
-
-## Admin Endpoints
-
-Both endpoints require the user to have `is_staff = true`.
-
-### Dashboard Stats
-```
-GET /users/admin/stats/
-Auth: Staff required
-```
 **Response `200`**
 ```json
 {
-  "total_products": 12,
-  "in_stock":        11,
-  "out_of_stock":    1,
-  "total_users":     5,
-  "cart_items":      8,
-  "wishlist_items":  14
+  "id":             7,
+  "name":           "Kong Classic Dog Toy",
+  "category":       "Dogs",
+  "price":          "29.99",
+  "original_price": "39.99",
+  "rating":         4.8,
+  "reviews":        1243,
+  "badge":          "Best Seller",
+  "emoji":          "🦴",
+  "in_stock":       true,
+  "is_best_seller": true,
+  "is_new_arrival": false,
+  "description":    "The Kong Classic is the ultimate chew toy...",
+  "highlights":     ["Durable natural rubber", "Dishwasher safe"],
+  "specs":          { "Material": "Natural rubber", "Sizes": "S / M / L / XL" },
+  "discount_pct":   25,
+  "created_at":     "2024-06-01T10:00:00.000000Z",
+  "updated_at":     "2024-06-01T10:00:00.000000Z"
+}
+```
+
+`highlights` is a JSON array of strings.
+`specs` is a JSON object with string keys and string values.
+
+---
+
+### POST `/products/` — staff only
+
+**Request body**
+```json
+{
+  "name":           "New Product",
+  "category":       "Cats",
+  "price":          "19.99",
+  "original_price": "24.99",
+  "rating":         0,
+  "reviews":        0,
+  "badge":          null,
+  "emoji":          "🐟",
+  "in_stock":       true,
+  "is_best_seller": false,
+  "is_new_arrival": true,
+  "description":    "A great product.",
+  "highlights":     ["Feature one", "Feature two"],
+  "specs":          { "Weight": "200g" }
+}
+```
+
+**Response `201`** — full product object
+
+---
+
+### PUT `/products/<id>/` — staff only
+
+Full replacement. Same body shape as POST.
+
+**Response `200`** — updated full product object
+
+---
+
+### PATCH `/products/<id>/` — staff only
+
+Partial update — send only the fields to change.
+
+**Response `200`** — updated full product object
+
+---
+
+### DELETE `/products/<id>/` — staff only
+
+**Response `204`** (no body)
+
+---
+
+## Admin
+
+Require a Bearer token with `is_staff: true`. A valid token from a non-staff user returns `403`.
+
+---
+
+### GET `/users/admin/stats/`
+
+**Response `200`**
+```json
+{
+  "total_products":  12,
+  "in_stock":        10,
+  "out_of_stock":    2,
+  "total_users":     47,
+  "cart_items":      83,
+  "wishlist_items":  61
 }
 ```
 
 ---
 
-### List All Users
-```
-GET /users/admin/users/
-Auth: Staff required
-```
+### GET `/users/admin/users/`
+
+All users, newest first.
+
 **Response `200`**
 ```json
 [
   {
     "id":             1,
-    "name":           "John Smith",
-    "email":          "john@example.com",
-    "phone":          "0400000000",
+    "name":           "Jane Smith",
+    "email":          "jane@example.com",
+    "phone":          "0412345678",
     "is_staff":       false,
     "is_active":      true,
-    "date_joined":    "27 May 2026",
-    "cart_count":     3,
+    "date_joined":    "01 Jun 2024",
+    "cart_count":     2,
     "wishlist_count": 5
   }
 ]
 ```
 
+`date_joined` is a formatted string `"DD Mon YYYY"`.
+
 ---
 
-## Error Response Format
+### PUT `/users/admin/users/<id>/`
 
-All error responses follow this shape:
+Updates any user. All fields optional.
+
+**Request body**
 ```json
-{ "detail": "Human-readable error message." }
+{
+  "name":      "Jane Doe",
+  "phone":     "0499999999",
+  "is_staff":  true,
+  "is_active": false
+}
 ```
-Field-level validation errors use the field name as the key:
+
+**Response `200`** — same shape as a single item from `GET /users/admin/users/`
+
+**Error `404`**
 ```json
-{ "email": "An account with this email already exists." }
+{ "detail": "Not found." }
 ```
 
 ---
 
+### DELETE `/users/admin/users/<id>/`
+
+Deletes the user and all their data (pets, cart items, wishlist items).
+
+**Response `204`** (no body)
+
+**Errors**
+```json
+{ "detail": "You cannot delete your own account." }
+{ "detail": "Not found." }
+```
+
 ---
 
-## Data Types Reference
+## iOS Token Management Pattern
 
-| Field               | Type           | Notes |
-|---------------------|----------------|-------|
-| `price`             | decimal string | e.g. `"49.99"` — parse with `parseFloat()` |
-| `original_price`    | decimal string | Same |
-| `rating`            | float          | 0.0 – 5.0 |
-| `reviews`           | integer        | Review count |
-| `in_stock`          | boolean        |  |
-| `is_best_seller`    | boolean        |  |
-| `is_new_arrival`    | boolean        |  |
-| `discount_pct`      | integer        | Computed field, read-only |
-| `highlights`        | array[string]  | Up to 4 bullet points |
-| `specs`             | object         | Key–value pairs |
-| `created_at`        | ISO 8601 string| UTC |
+```
+1.  Login  →  save access + refresh tokens to Keychain
+              Keys: "petoopia_access", "petoopia_refresh"
+              Also cache the user JSON for offline display.
+
+2.  Request →  attach header:  Authorization: Bearer <access>
+
+3.  On 401  →  POST /users/token/refresh/ with saved refresh token
+               Success: save new access token, retry original request once
+               Failure: delete both Keychain entries, navigate to login
+
+4.  Logout  →  delete both Keychain entries, clear cached user data
+```
+
+---
+
+## Valid Category Values
+
+```
+"Dogs"
+"Cats"
+"Birds"
+```
+
+Used in: `Product.category`, `CartItem.product_category`, `WishlistItem.product_category`.
